@@ -1,0 +1,10 @@
+[project]
+name = "video-automation"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "imageio-ffmpeg>=0.6.0",
+    "moviepy==1.0.3",
+]
