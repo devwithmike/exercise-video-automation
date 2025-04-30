@@ -6,6 +6,10 @@ core leg slides.mp4
 1 set, 30 secs
 bear plank.mp4
 
+# Rest
+Take 30 seconds to rest
+BLANK
+
 # Belly Breathing
 3 sets, 3 reps
 belly breathing.mp4

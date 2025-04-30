@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import time, datetime
 
-from moviepy.editor import VideoFileClip, concatenate_videoclips, TextClip, CompositeVideoClip
+from moviepy.editor import VideoFileClip, concatenate_videoclips, TextClip, CompositeVideoClip, ColorClip
 from moviepy.config import change_settings
 
 change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
@@ -19,30 +19,49 @@ def parse_script(script, video_src_dir):
     while i < len(lines):
         title = lines[i].lstrip('# ').strip()
         description = lines[i + 1].strip()
-        filename = os.path.join(Path(video_src_dir), lines[i + 2].strip())
+        filename_text = lines[i + 2].strip()
+        if filename_text.upper() == "BLANK":
+            filename = filename_text
+        else:
+            filename = os.path.join(Path(video_src_dir), lines[i + 2].strip())
         items.append({'title': title, 'description': description, 'filename': filename})
         i += 4
     return items
 
 def process_video_item(item):
     try:
-        video_clip = VideoFileClip(item["filename"])
-        if hasattr(video_clip, 'duration') and video_clip.duration is not None:
-            # Create the title text clip
-            title_clip = TextClip(item["title"], fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black', )
-            title_clip = title_clip.set_pos(('left', 'top')).set_duration(video_clip.duration)
+        if item["filename"] == "BLANK":
+            duration = 5  # Set duration of the black screen, e.g., 5 seconds
+            resolution = (1920, 1080)  # Set your desired resolution
 
-            # Create the description text clip
-            description_clip = TextClip(item["description"], fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black')
-            description_clip = description_clip.set_pos(('left', title_clip.h + 5)).set_duration(video_clip.duration) # Position below the title
+            # Create a black background clip
+            black_clip = ColorClip(size=resolution, color=(0, 0, 0), duration=duration)
 
-            # Composite the text onto the video
-            final_clip = CompositeVideoClip([video_clip, title_clip, description_clip])
+            # Centered title text
+            title_clip = TextClip(item["title"], fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black')
+            title_clip = title_clip.set_position('center').set_duration(duration)
+
+            # Description text below title
+            description_clip = TextClip(item["description"], fontsize=50, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black')
+            description_clip = description_clip.set_position(('center', resolution[1] // 2 + 60)).set_duration(duration)
+
+            final_clip = CompositeVideoClip([black_clip, title_clip, description_clip])
             return final_clip
         else:
-            print(f"Warning: Could not determine the duration for {item['filename']}. Skipping this clip.")
-            video_clip.close()
-            return None
+            video_clip = VideoFileClip(item["filename"])
+            if hasattr(video_clip, 'duration') and video_clip.duration is not None:
+                title_clip = TextClip(item["title"], fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black')
+                title_clip = title_clip.set_pos(('left', 'top')).set_duration(video_clip.duration)
+
+                description_clip = TextClip(item["description"], fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black')
+                description_clip = description_clip.set_pos(('left', title_clip.h + 5)).set_duration(video_clip.duration)
+
+                final_clip = CompositeVideoClip([video_clip, title_clip, description_clip])
+                return final_clip
+            else:
+                print(f"Warning: Could not determine the duration for {item['filename']}. Skipping this clip.")
+                video_clip.close()
+                return None
     except Exception as e:
         print(f"Error processing {item['filename']}: {e}")
         return None
