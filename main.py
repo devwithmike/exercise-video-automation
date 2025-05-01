@@ -13,58 +13,90 @@ def parse_script(script, video_src_dir):
     with open(script, "r") as f:
         script_data = f.read()
     items = []
-    lines = script_data.strip().split('\n')
-    i = 0
+    segments = script_data.strip().split('\n\n')
     
-    while i < len(lines):
-        title = lines[i].lstrip('# ').strip()
-        description = lines[i + 1].strip()
-        filename_text = lines[i + 2].strip()
+    for segment in segments:
+        lines = segment.strip().split('\n')
+        video_text_list = []
+        for line in lines[:-1]:
+            video_text_list.append(line.strip())
+        filename_text = lines[len(lines) - 1]
         if filename_text.upper() == "BLANK":
             filename = filename_text
         else:
-            filename = os.path.join(Path(video_src_dir), lines[i + 2].strip())
-        items.append({'title': title, 'description': description, 'filename': filename})
-        i += 4
+            filename = os.path.join(Path(video_src_dir), filename_text.strip())
+        items.append({'texts': video_text_list, 'filename': filename})
     return items
 
 def process_video_item(item):
-    try:
-        if item["filename"] == "BLANK":
-            duration = 5  # Set duration of the black screen, e.g., 5 seconds
-            resolution = (1920, 1080)  # Set your desired resolution
+    # try:
+    #     resolution = (1920, 1080)
+    #     clips = []
+    #     if item["filename"] == "BLANK":
+    #         duration = 5
+    #         black_clip = ColorClip(size=resolution, color=(0, 0, 0), duration=duration)
+    #         clips.append(black_clip)
+            
+    #         offset = 0
+    #         for text in item["texts"]:
+    #             temp_clip = TextClip(text, fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black').set_position('center', resolution[1] // 2 + offset).set_duration(duration)
+    #             clips.append(temp_clip)
+    #             offset += 60
+    #     else:
+    #         video_clip = VideoFileClip(item["filename"])
+    #         if hasattr(video_clip, 'duration') and video_clip.duration is not None:
+    #             offset = 0
+    #             for text in item["texts"]:
+    #                 temp_clip = TextClip(text, fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black').set_position('left', resolution[1] - offset).set_duration(video_clip.duration)
+    #                 clips.append(temp_clip)
+    #                 offset += 60
+    #         else:
+    #             print(f"Warning: Could not determine the duration for {item['filename']}. Skipping this clip.")
+    #             video_clip.close()
+    #             return None
+    #     final_clip = CompositeVideoClip(clips)
+    #     return final_clip
+    # except Exception as e:
+    #     print(f"Error processing {item['filename']}: {e}")
+    #     return None
+    
+    font = "Arial-BoldMT"
+    fontsize = 70
+    color = "white"
+    margin = 10
+    stroke_width=2, 
+    stroke_color='black'
+    
+    text_clips = []
+    y_position = margin
+    if item["filename"] == "BLANK":
+        resolution = (1920, 1080)
+        duration = 5
+        base_clip = ColorClip(size=resolution, color=(0, 0, 0), duration=duration)
+        
+        total_text_height = 0
+        text_objs = []
+        for text in item["texts"]:
+            txt = TextClip(text, font=font, fontsize=fontsize, color=color, stroke_width=stroke_width, stroke_color=stroke_color)
+            total_text_height += txt.h + 10  # small padding between lines
+            text_objs.append(txt)
 
-            # Create a black background clip
-            black_clip = ColorClip(size=resolution, color=(0, 0, 0), duration=duration)
+        y_start = (resolution[1] - total_text_height) // 2  # vertical center start
 
-            # Centered title text
-            title_clip = TextClip(item["title"], fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black')
-            title_clip = title_clip.set_position('center').set_duration(duration)
-
-            # Description text below title
-            description_clip = TextClip(item["description"], fontsize=50, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black')
-            description_clip = description_clip.set_position(('center', resolution[1] // 2 + 60)).set_duration(duration)
-
-            final_clip = CompositeVideoClip([black_clip, title_clip, description_clip])
-            return final_clip
-        else:
-            video_clip = VideoFileClip(item["filename"])
-            if hasattr(video_clip, 'duration') and video_clip.duration is not None:
-                title_clip = TextClip(item["title"], fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black')
-                title_clip = title_clip.set_pos(('left', 'top')).set_duration(video_clip.duration)
-
-                description_clip = TextClip(item["description"], fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black')
-                description_clip = description_clip.set_pos(('left', title_clip.h + 5)).set_duration(video_clip.duration)
-
-                final_clip = CompositeVideoClip([video_clip, title_clip, description_clip])
-                return final_clip
-            else:
-                print(f"Warning: Could not determine the duration for {item['filename']}. Skipping this clip.")
-                video_clip.close()
-                return None
-    except Exception as e:
-        print(f"Error processing {item['filename']}: {e}")
-        return None
+        for txt in text_objs:
+            text_clip = txt.set_position(("center", y_start)).set_duration(base_clip.duration)
+            text_clips.append(text_clip)
+            y_start += txt.h + 10
+    else:
+        base_clip = VideoFileClip(item["filename"])
+        for text in item["texts"]:
+            text_clip = TextClip(text, font=font, fontsize=fontsize, color=color, stroke_width=stroke_width, stroke_color=stroke_color)
+            text_clip = text_clip.set_position((margin, y_position))
+            text_clip = text_clip.set_duration(base_clip.duration)
+            text_clips.append(text_clip)
+            y_position += text_clip.h + 5
+    final_clip = CompositeVideoClip([base_clip] + text_clips)
+    return final_clip
 
 def main():
     parser = argparse.ArgumentParser(
@@ -83,7 +115,7 @@ def main():
     if processed_clips:
         try:
             final_movie = concatenate_videoclips(processed_clips, method="compose")
-            final_movie.write_videofile(str(Path(args.output)), codec="libx264", audio_codec="aac")
+            final_movie.write_videofile(str(Path(args.output)), codec="libx264", audio_codec="aac", fps=30)
             final_movie.close()
             print("Successfully combined the video clips.")
         except Exception as e:
