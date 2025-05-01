@@ -29,37 +29,6 @@ def parse_script(script, video_src_dir):
     return items
 
 def process_video_item(item):
-    # try:
-    #     resolution = (1920, 1080)
-    #     clips = []
-    #     if item["filename"] == "BLANK":
-    #         duration = 5
-    #         black_clip = ColorClip(size=resolution, color=(0, 0, 0), duration=duration)
-    #         clips.append(black_clip)
-            
-    #         offset = 0
-    #         for text in item["texts"]:
-    #             temp_clip = TextClip(text, fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black').set_position('center', resolution[1] // 2 + offset).set_duration(duration)
-    #             clips.append(temp_clip)
-    #             offset += 60
-    #     else:
-    #         video_clip = VideoFileClip(item["filename"])
-    #         if hasattr(video_clip, 'duration') and video_clip.duration is not None:
-    #             offset = 0
-    #             for text in item["texts"]:
-    #                 temp_clip = TextClip(text, fontsize=70, color='white', font='Arial-BoldMT', stroke_width=2, stroke_color='black').set_position('left', resolution[1] - offset).set_duration(video_clip.duration)
-    #                 clips.append(temp_clip)
-    #                 offset += 60
-    #         else:
-    #             print(f"Warning: Could not determine the duration for {item['filename']}. Skipping this clip.")
-    #             video_clip.close()
-    #             return None
-    #     final_clip = CompositeVideoClip(clips)
-    #     return final_clip
-    # except Exception as e:
-    #     print(f"Error processing {item['filename']}: {e}")
-    #     return None
-    
     font = "Arial-BoldMT"
     fontsize = 70
     color = "white"
