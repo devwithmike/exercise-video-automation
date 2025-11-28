@@ -2,19 +2,46 @@ import argparse
 import os
 from pathlib import Path
 import time, datetime
+import sys
 
 from moviepy.editor import VideoFileClip, concatenate_videoclips, TextClip, CompositeVideoClip, ColorClip
 from moviepy.config import change_settings
+import moviepy.config as conf
 
-change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
+# Try to import python-dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("Warning: python-dotenv not installed. Install with: pip install python-dotenv")
+    print("Continuing without .env file support...")
+
 start_time = time.time()
+
+def get_config():
+    """Load configuration from .env file and validate IMAGEMAGICK_BINARY"""
+    imagemagick_binary = os.getenv('IMAGEMAGICK_BINARY')
+
+    if not imagemagick_binary:
+        print("Error: IMAGEMAGICK_BINARY not found in .env file")
+        print("Please create a .env file with: IMAGEMAGICK_BINARY=/path/to/imagemagick/binary")
+        sys.exit(1)
+
+    # Set the ImageMagick binary path
+    conf.IMAGEMAGICK_BINARY = imagemagick_binary
+
+    return {
+        'input': os.getenv('INPUT_DIR'),
+        'script': os.getenv('SCRIPT_FILE'),
+        'output': os.getenv('OUTPUT_FILE')
+    }
 
 def parse_script(script, video_src_dir):
     with open(script, "r") as f:
         script_data = f.read()
     items = []
     segments = script_data.strip().split('\n\n')
-    
+
     for segment in segments:
         lines = segment.strip().split('\n')
         video_text_list = []
@@ -33,16 +60,16 @@ def process_video_item(item):
     fontsize = 70
     color = "white"
     margin = 10
-    stroke_width=2, 
+    stroke_width=2,
     stroke_color='black'
-    
+
     text_clips = []
     y_position = margin
     if item["filename"] == "BLANK":
         resolution = (1920, 1080)
         duration = 5
         base_clip = ColorClip(size=resolution, color=(0, 0, 0), duration=duration)
-        
+
         total_text_height = 0
         text_objs = []
         for text in item["texts"]:
@@ -68,23 +95,42 @@ def process_video_item(item):
     return final_clip
 
 def main():
+    # Load configuration from .env
+    env_config = get_config()
+
     parser = argparse.ArgumentParser(
                     prog='VideoAuto',
                     description='Automate basic video editing')
-    
-    requiredArgumentsGroup = parser.add_argument_group('required arguments')
-    requiredArgumentsGroup.add_argument('-i', '--input', help='Directory to input videos', required=True)
-    requiredArgumentsGroup.add_argument('-s', '--script', help='Markdown script file', required=True)
-    requiredArgumentsGroup.add_argument('-o', '--output', help='Location and filename for mp4 file', required=True)
+
+    # Arguments are now optional if they exist in .env
+    parser.add_argument('-i', '--input', help='Directory to input videos', required=False)
+    parser.add_argument('-s', '--script', help='Markdown script file', required=False)
+    parser.add_argument('-o', '--output', help='Location and filename for mp4 file', required=False)
     args = parser.parse_args()
-    
-    script = parse_script(args.script, args.input)
+
+    # Command line args take precedence over .env values
+    input_dir = args.input if args.input else env_config['input']
+    script_file = args.script if args.script else env_config['script']
+    output_file = args.output if args.output else env_config['output']
+
+    # Validate that all required parameters are present
+    if not input_dir:
+        print("Error: Input directory not specified. Provide via -i/--input or INPUT_DIR in .env")
+        sys.exit(1)
+    if not script_file:
+        print("Error: Script file not specified. Provide via -s/--script or SCRIPT_FILE in .env")
+        sys.exit(1)
+    if not output_file:
+        print("Error: Output file not specified. Provide via -o/--output or OUTPUT_FILE in .env")
+        sys.exit(1)
+
+    script = parse_script(script_file, input_dir)
     processed_clips = [process_video_item(item) for item in script if process_video_item(item) is not None]
-    
+
     if processed_clips:
         try:
             final_movie = concatenate_videoclips(processed_clips, method="compose")
-            final_movie.write_videofile(str(Path(args.output)), codec="libx264", audio_codec="aac", fps=30)
+            final_movie.write_videofile(str(Path(output_file)), codec="libx264", audio_codec="aac", fps=30)
             final_movie.close()
             print("Successfully combined the video clips.")
         except Exception as e:
@@ -94,7 +140,7 @@ def main():
                     clip.close()
     else:
         print("No valid video clips were processed, so no combined video was created.")
-    
+
     print("Took", str(datetime.timedelta(seconds=time.time() - start_time)), "to run")
 
 
